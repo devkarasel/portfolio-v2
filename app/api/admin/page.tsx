@@ -13,11 +13,12 @@ interface Message {
   replied: boolean
 }
 
-// Store token in memory for the session
-let authToken = ''
+function getToken() {
+  return typeof window !== 'undefined' ? sessionStorage.getItem('admin_token') || '' : ''
+}
 
 function authHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
 }
 
 function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
@@ -130,6 +131,12 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'replied'>('all')
   const [loading, setLoading] = useState(false)
 
+  // Auto-login if token exists in sessionStorage
+  useEffect(() => {
+    const token = sessionStorage.getItem('admin_token')
+    if (token) setAuthed(true)
+  }, [])
+
   const loadMessages = useCallback(async () => {
     setLoading(true)
     const res = await fetch('/api/admin/messages', { headers: authHeaders() })
@@ -145,7 +152,7 @@ export default function AdminPage() {
   }, [authed, loadMessages])
 
   const handleLogin = (token: string) => {
-    authToken = token
+    sessionStorage.setItem('admin_token', token)
     setAuthed(true)
   }
 
@@ -172,7 +179,7 @@ export default function AdminPage() {
   }
 
   const logout = () => {
-    authToken = ''
+    sessionStorage.removeItem('admin_token')
     setAuthed(false)
     setMessages([])
     setSelected(null)
@@ -189,7 +196,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-bg text-text">
-      {/* Header */}
       <header className="border-b border-border bg-surface/50 backdrop-blur-md px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <p className="font-serif text-lg">Admin Panel</p>
@@ -202,7 +208,6 @@ export default function AdminPage() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-8 grid md:grid-cols-[320px_1fr] gap-6">
-        {/* Sidebar */}
         <div className="bg-surface border border-border rounded-2xl overflow-hidden">
           <div className="flex border-b border-border">
             {(['all', 'unread', 'replied'] as const).map((f) => (
@@ -244,7 +249,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Detail */}
         <div className="bg-surface border border-border rounded-2xl p-6">
           {!selected ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-20">
@@ -282,9 +286,7 @@ export default function AdminPage() {
         <ReplyModal
           msg={selected}
           onClose={() => setReplying(false)}
-          onSent={() => {
-            setMessages((prev) => prev.map((m) => m.id === selected.id ? { ...m, replied: true, read: true } : m))
-          }}
+          onSent={() => setMessages((prev) => prev.map((m) => m.id === selected.id ? { ...m, replied: true, read: true } : m))}
         />
       )}
     </div>
