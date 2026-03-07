@@ -14,11 +14,14 @@ export async function POST(req: NextRequest) {
 
     // Send email notification
     if (process.env.SMTP_HOST && process.env.SMTP_PASS) {
+      const port = parseInt(process.env.SMTP_PORT || '587')
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: parseInt(process.env.SMTP_PORT || '465') === 465,
+        port,
+        secure: port === 465,
+        requireTLS: port === 587,
         auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        tls: { rejectUnauthorized: false },
       })
       await transporter.sendMail({
         from: `"Portfolio" <${process.env.SMTP_USER}>`,
