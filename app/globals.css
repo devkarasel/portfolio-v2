@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-playfair: 'Playfair Display';
+  --font-jakarta: 'Plus Jakarta Sans';
+  --font-mono: 'JetBrains Mono';
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #222226 #0D0D0F;
+}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0D0D0F; }
+::-webkit-scrollbar-thumb { background: #222226; border-radius: 2px; }
+
+body {
+  background: #0D0D0F;
+  color: #F0F0F0;
+  font-family: var(--font-jakarta), sans-serif;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Divider ── */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: #222226;
+}
+
+/* ── Section fade animations ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Tag ── */
+.tag {
+  @apply inline-block px-3 py-1 text-xs font-mono border border-border text-muted rounded-full;
+  letter-spacing: 0.04em;
+}
+.tag-green {
+  @apply inline-block px-3 py-1 text-xs font-mono rounded-full;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  color: #4ADE80;
+  letter-spacing: 0.04em;
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  @apply inline-flex items-center gap-2 px-6 py-2.5 text-sm font-sans font-medium rounded-full;
+  background: #4ADE80;
+  color: #0D0D0F;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.btn-outline {
+  @apply inline-flex items-center gap-2 px-6 py-2.5 text-sm font-sans font-medium rounded-full border border-border text-text;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.btn-outline:hover { border-color: #4ADE80; transform: translateY(-1px); }
+
+/* ── Form ── */
+.form-field {
+  @apply w-full bg-surface border border-border text-text text-sm px-4 py-3 rounded-lg outline-none font-sans;
+  transition: border-color 0.2s;
+}
+.form-field:focus { border-color: #4ADE80; }
+.form-field::placeholder { color: #6B7280; }
+
+/* ── Nav link ── */
+.nav-link {
+  @apply text-sm text-muted font-sans;
+  transition: color 0.2s;
+}
+.nav-link:hover { color: #F0F0F0; }
+
+/* ── Section label ── */
+.section-label {
+  @apply text-xs font-mono text-accent tracking-[0.2em] uppercase;
+}
+
+/* ── Photo ring ── */
+.photo-ring {
+  position: relative;
+  display: inline-block;
+}
+.photo-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #4ADE80 0%, transparent 60%);
+  z-index: 0;
+}
+.photo-ring img {
+  position: relative;
+  z-index: 1;
+}
