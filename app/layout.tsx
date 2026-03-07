@@ -57,6 +57,9 @@ export const metadata: Metadata = {
     images: ['/avatar.jpg'],
     creator: '@devkarasel',
   },
+  verification: {
+    google: "fQmC9lcxpWK4Wxwwld4bp0szbWwW6CcGeQKoWPl8eDk",
+  },
   alternates: {
     canonical: 'https://devrasel.me',
   },
