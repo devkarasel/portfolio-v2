@@ -12,7 +12,8 @@ export interface Message {
   replied: boolean
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data')
+// Use /tmp on Vercel (serverless), local data/ otherwise
+const DATA_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data')
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json')
 
 function ensureDataDir() {
@@ -21,9 +22,13 @@ function ensureDataDir() {
 }
 
 export function getMessages(): Message[] {
-  ensureDataDir()
-  const raw = fs.readFileSync(MESSAGES_FILE, 'utf-8')
-  return JSON.parse(raw) as Message[]
+  try {
+    ensureDataDir()
+    const raw = fs.readFileSync(MESSAGES_FILE, 'utf-8')
+    return JSON.parse(raw) as Message[]
+  } catch {
+    return []
+  }
 }
 
 export function saveMessage(msg: Omit<Message, 'id' | 'receivedAt' | 'read' | 'replied'>): Message {
