@@ -13,7 +13,14 @@ interface Message {
   replied: boolean
 }
 
-function LoginScreen({ onLogin }: { onLogin: () => void }) {
+// Store token in memory for the session
+let authToken = ''
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }
+}
+
+function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -26,8 +33,12 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
     })
-    if (res.ok) onLogin()
-    else setError('Invalid password')
+    if (res.ok) {
+      const data = await res.json()
+      onLogin(data.token)
+    } else {
+      setError('Invalid password')
+    }
     setLoading(false)
   }
 
@@ -73,7 +84,7 @@ function ReplyModal({ msg, onClose, onSent }: { msg: Message; onClose: () => voi
     setError('')
     const res = await fetch('/api/admin/reply', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id: msg.id, to: msg.email, subject: `Re: ${msg.subject}`, body }),
     })
     if (res.ok) { onSent(); onClose() }
@@ -113,38 +124,37 @@ function ReplyModal({ msg, onClose, onSent }: { msg: Message; onClose: () => voi
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
-  const [checking, setChecking] = useState(true)
   const [messages, setMessages] = useState<Message[]>([])
   const [selected, setSelected] = useState<Message | null>(null)
   const [replying, setReplying] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unread' | 'replied'>('all')
-
-  useEffect(() => {
-    fetch('/api/admin/messages')
-      .then((r) => { if (r.ok) setAuthed(true) })
-      .finally(() => setChecking(false))
-  }, [])
+  const [loading, setLoading] = useState(false)
 
   const loadMessages = useCallback(async () => {
-    const res = await fetch('/api/admin/messages')
+    setLoading(true)
+    const res = await fetch('/api/admin/messages', { headers: authHeaders() })
     if (res.ok) {
       const data = await res.json()
-      setMessages(Array.isArray(data) ? data : data.messages || [])
+      setMessages(Array.isArray(data) ? data : [])
     }
+    setLoading(false)
   }, [])
 
   useEffect(() => {
     if (authed) loadMessages()
   }, [authed, loadMessages])
 
-  const handleLogin = () => { setAuthed(true) }
+  const handleLogin = (token: string) => {
+    authToken = token
+    setAuthed(true)
+  }
 
   const selectMessage = async (msg: Message) => {
     setSelected(msg)
     if (!msg.read) {
       await fetch('/api/admin/messages', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ id: msg.id }),
       })
       setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, read: true } : m))
@@ -154,25 +164,19 @@ export default function AdminPage() {
   const deleteMsg = async (id: string) => {
     await fetch('/api/admin/messages', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ id }),
     })
     setMessages((prev) => prev.filter((m) => m.id !== id))
     if (selected?.id === id) setSelected(null)
   }
 
-  const logout = async () => {
-    await fetch('/api/admin/login', { method: 'DELETE' })
+  const logout = () => {
+    authToken = ''
     setAuthed(false)
     setMessages([])
     setSelected(null)
   }
-
-  if (checking) return (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
 
   if (!authed) return <LoginScreen onLogin={handleLogin} />
 
@@ -189,9 +193,7 @@ export default function AdminPage() {
       <header className="border-b border-border bg-surface/50 backdrop-blur-md px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <p className="font-serif text-lg">Admin Panel</p>
-          {unreadCount > 0 && (
-            <span className="tag-green text-[10px]">{unreadCount} new</span>
-          )}
+          {unreadCount > 0 && <span className="tag-green text-[10px]">{unreadCount} new</span>}
         </div>
         <div className="flex items-center gap-4">
           <a href="/" className="text-xs font-mono text-muted hover:text-text transition-colors">← Portfolio</a>
@@ -202,7 +204,6 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto px-6 py-8 grid md:grid-cols-[320px_1fr] gap-6">
         {/* Sidebar */}
         <div className="bg-surface border border-border rounded-2xl overflow-hidden">
-          {/* Filters */}
           <div className="flex border-b border-border">
             {(['all', 'unread', 'replied'] as const).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
@@ -212,9 +213,12 @@ export default function AdminPage() {
             ))}
           </div>
 
-          {/* Message list */}
           <div className="divide-y divide-border">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : filtered.length === 0 ? (
               <p className="text-center text-muted font-mono text-xs py-12">No messages</p>
             ) : (
               filtered.map((msg) => (
@@ -227,16 +231,13 @@ export default function AdminPage() {
                     {!msg.read && <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-1" />}
                   </div>
                   <p className="text-xs text-muted truncate">{msg.subject}</p>
-                  <p className="text-xs font-mono text-subtle mt-1">
-                    {new Date(msg.receivedAt).toLocaleDateString()}
-                  </p>
+                  <p className="text-xs font-mono text-subtle mt-1">{new Date(msg.receivedAt).toLocaleDateString()}</p>
                   {msg.replied && <span className="tag-green text-[10px] mt-1 inline-block">Replied</span>}
                 </button>
               ))
             )}
           </div>
 
-          {/* Stats */}
           <div className="border-t border-border px-4 py-3 flex justify-between">
             <span className="text-xs font-mono text-muted">{messages.length} total</span>
             <span className="text-xs font-mono text-muted">{messages.filter((m) => m.replied).length} replied</span>
@@ -263,21 +264,15 @@ export default function AdminPage() {
                     {' · '}
                     <a href={`mailto:${selected.email}`} className="text-accent hover:underline">{selected.email}</a>
                   </p>
-                  <p className="text-xs font-mono text-subtle mt-1">
-                    {new Date(selected.receivedAt).toLocaleString()}
-                  </p>
+                  <p className="text-xs font-mono text-subtle mt-1">{new Date(selected.receivedAt).toLocaleString()}</p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => setReplying(true)}
-                    className="btn-primary text-xs py-2 px-4">Reply</button>
-                  <button onClick={() => deleteMsg(selected.id)}
-                    className="btn-outline text-xs py-2 px-4 hover:border-red-400 hover:text-red-400">Delete</button>
+                  <button onClick={() => setReplying(true)} className="btn-primary text-xs py-2 px-4">Reply</button>
+                  <button onClick={() => deleteMsg(selected.id)} className="btn-outline text-xs py-2 px-4 hover:border-red-400 hover:text-red-400">Delete</button>
                 </div>
               </div>
               <div className="divider mb-6" />
-              <p className="text-muted font-sans font-light leading-relaxed whitespace-pre-wrap text-sm">
-                {selected.message}
-              </p>
+              <p className="text-muted font-sans font-light leading-relaxed whitespace-pre-wrap text-sm">{selected.message}</p>
             </>
           )}
         </div>
@@ -289,7 +284,6 @@ export default function AdminPage() {
           onClose={() => setReplying(false)}
           onSent={() => {
             setMessages((prev) => prev.map((m) => m.id === selected.id ? { ...m, replied: true, read: true } : m))
-            loadMessages()
           }}
         />
       )}
