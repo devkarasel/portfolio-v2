@@ -13,7 +13,7 @@ export interface Message {
 }
 
 const uri = process.env.MONGODB_URI!
-let client: MongoClient
+
 let clientPromise: Promise<MongoClient>
 
 declare global {
@@ -22,7 +22,12 @@ declare global {
 }
 
 if (!global._mongoClientPromise) {
-  client = new MongoClient(uri)
+  const client = new MongoClient(uri, {
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+  })
   global._mongoClientPromise = client.connect()
 }
 clientPromise = global._mongoClientPromise!
