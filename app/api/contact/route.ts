@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { saveMessage } from '@/lib/messages'
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +9,10 @@ export async function POST(req: NextRequest) {
     if (!name || !email || !message)
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
 
+    // Save to MongoDB
+    await saveMessage({ name, email, subject: subject || '(no subject)', message })
+
+    // Send email notification
     const port = parseInt(process.env.SMTP_PORT || '587')
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',

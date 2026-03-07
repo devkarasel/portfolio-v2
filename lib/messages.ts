@@ -1,7 +1,7 @@
-import fs from 'fs'
-import path from 'path'
+import { MongoClient, ObjectId } from 'mongodb'
 
 export interface Message {
+  _id?: string
   id: string
   name: string
   email: string
@@ -12,63 +12,58 @@ export interface Message {
   replied: boolean
 }
 
-// Use /tmp on Vercel (serverless), local data/ otherwise
-const DATA_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data')
-const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json')
+const uri = process.env.MONGODB_URI!
+let client: MongoClient
+let clientPromise: Promise<MongoClient>
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
-  if (!fs.existsSync(MESSAGES_FILE)) fs.writeFileSync(MESSAGES_FILE, '[]', 'utf-8')
+declare global {
+  // eslint-disable-next-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined
 }
 
-export function getMessages(): Message[] {
-  try {
-    ensureDataDir()
-    const raw = fs.readFileSync(MESSAGES_FILE, 'utf-8')
-    return JSON.parse(raw) as Message[]
-  } catch {
-    return []
-  }
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri)
+  global._mongoClientPromise = client.connect()
+}
+clientPromise = global._mongoClientPromise!
+
+async function getCollection() {
+  const client = await clientPromise
+  return client.db('portfolio').collection<Message>('messages')
 }
 
-export function saveMessage(msg: Omit<Message, 'id' | 'receivedAt' | 'read' | 'replied'>): Message {
-  ensureDataDir()
-  const messages = getMessages()
+export async function getMessages(): Promise<Message[]> {
+  const col = await getCollection()
+  const msgs = await col.find({}).sort({ receivedAt: -1 }).toArray()
+  return msgs.map((m) => ({ ...m, id: m._id?.toString() || m.id }))
+}
+
+export async function saveMessage(
+  msg: Omit<Message, 'id' | 'receivedAt' | 'read' | 'replied'>
+): Promise<Message> {
+  const col = await getCollection()
   const newMsg: Message = {
     ...msg,
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    id: new ObjectId().toString(),
     receivedAt: new Date().toISOString(),
     read: false,
     replied: false,
   }
-  messages.unshift(newMsg)
-  fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
+  await col.insertOne(newMsg)
   return newMsg
 }
 
-export function markRead(id: string): void {
-  ensureDataDir()
-  const messages = getMessages()
-  const idx = messages.findIndex((m) => m.id === id)
-  if (idx !== -1) {
-    messages[idx].read = true
-    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
-  }
+export async function markRead(id: string): Promise<void> {
+  const col = await getCollection()
+  await col.updateOne({ id }, { $set: { read: true } })
 }
 
-export function markReplied(id: string): void {
-  ensureDataDir()
-  const messages = getMessages()
-  const idx = messages.findIndex((m) => m.id === id)
-  if (idx !== -1) {
-    messages[idx].replied = true
-    messages[idx].read = true
-    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
-  }
+export async function markReplied(id: string): Promise<void> {
+  const col = await getCollection()
+  await col.updateOne({ id }, { $set: { read: true, replied: true } })
 }
 
-export function deleteMessage(id: string): void {
-  ensureDataDir()
-  const messages = getMessages().filter((m) => m.id !== id)
-  fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
+export async function deleteMessage(id: string): Promise<void> {
+  const col = await getCollection()
+  await col.deleteOne({ id })
 }
