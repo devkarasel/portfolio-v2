@@ -1,7 +1,6 @@
 import { MongoClient, ObjectId } from 'mongodb'
 
 export interface Message {
-  _id?: string
   id: string
   name: string
   email: string
@@ -14,8 +13,6 @@ export interface Message {
 
 const uri = process.env.MONGODB_URI!
 
-let clientPromise: Promise<MongoClient>
-
 declare global {
   // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined
@@ -23,31 +20,38 @@ declare global {
 
 if (!global._mongoClientPromise) {
   const client = new MongoClient(uri, {
-    tls: true,
-    tlsAllowInvalidCertificates: false,
     serverSelectionTimeoutMS: 10000,
     connectTimeoutMS: 10000,
   })
   global._mongoClientPromise = client.connect()
 }
-clientPromise = global._mongoClientPromise!
 
 async function getCollection() {
-  const client = await clientPromise
-  return client.db('portfolio').collection<Message>('messages')
+  const client = await global._mongoClientPromise!
+  return client.db('portfolio').collection('messages')
 }
 
 export async function getMessages(): Promise<Message[]> {
   const col = await getCollection()
   const msgs = await col.find({}).sort({ receivedAt: -1 }).toArray()
-  return msgs.map((m) => ({ ...m, id: m._id?.toString() || m.id }))
+  // Safely serialize - strip _id and return plain objects
+  return msgs.map((m) => ({
+    id: m.id || m._id?.toString(),
+    name: m.name,
+    email: m.email,
+    subject: m.subject,
+    message: m.message,
+    receivedAt: m.receivedAt,
+    read: m.read ?? false,
+    replied: m.replied ?? false,
+  }))
 }
 
 export async function saveMessage(
   msg: Omit<Message, 'id' | 'receivedAt' | 'read' | 'replied'>
 ): Promise<Message> {
   const col = await getCollection()
-  const newMsg: Message = {
+  const newMsg = {
     ...msg,
     id: new ObjectId().toString(),
     receivedAt: new Date().toISOString(),
