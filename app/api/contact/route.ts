@@ -1,49 +1,74 @@
-import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
-import { saveMessage } from '@/lib/messages'
+import fs from 'fs'
+import path from 'path'
 
-export async function POST(req: NextRequest) {
+export interface Message {
+  id: string
+  name: string
+  email: string
+  subject: string
+  message: string
+  receivedAt: string
+  read: boolean
+  replied: boolean
+}
+
+// Use /tmp on Vercel (serverless), local data/ otherwise
+const DATA_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data')
+const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json')
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+  if (!fs.existsSync(MESSAGES_FILE)) fs.writeFileSync(MESSAGES_FILE, '[]', 'utf-8')
+}
+
+export function getMessages(): Message[] {
   try {
-    const body = await req.json()
-    const { name, email, subject, message } = body
-    if (!name || !email || !message)
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-
-    // Save to local messages store for admin panel
-    saveMessage({ name, email, subject: subject || '(no subject)', message })
-
-    // Send email notification
-    if (process.env.SMTP_HOST && process.env.SMTP_PASS) {
-      const port = parseInt(process.env.SMTP_PORT || '587')
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port,
-        secure: port === 465,
-        requireTLS: port === 587,
-        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        tls: { rejectUnauthorized: false },
-      })
-      await transporter.sendMail({
-        from: `"Portfolio" <${process.env.SMTP_USER}>`,
-        to: process.env.CONTACT_EMAIL || 'devkarasel@gmail.com',
-        replyTo: email,
-        subject: `[Portfolio] ${subject || 'New message'} — from ${name}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;background:#0D0D0F;color:#F0F0F0;padding:32px;border-radius:12px">
-            <h2 style="color:#4ADE80;margin:0 0 20px">New Portfolio Message</h2>
-            <p><strong>From:</strong> ${name}</p>
-            <p><strong>Email:</strong> <a href="mailto:${email}" style="color:#4ADE80">${email}</a></p>
-            <p><strong>Subject:</strong> ${subject || '(none)'}</p>
-            <hr style="border-color:#222226;margin:20px 0"/>
-            <p style="white-space:pre-wrap;line-height:1.6">${message}</p>
-          </div>
-        `,
-      })
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('Contact error:', err)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    ensureDataDir()
+    const raw = fs.readFileSync(MESSAGES_FILE, 'utf-8')
+    return JSON.parse(raw) as Message[]
+  } catch {
+    return []
   }
+}
+
+export function saveMessage(msg: Omit<Message, 'id' | 'receivedAt' | 'read' | 'replied'>): Message {
+  ensureDataDir()
+  const messages = getMessages()
+  const newMsg: Message = {
+    ...msg,
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    receivedAt: new Date().toISOString(),
+    read: false,
+    replied: false,
+  }
+  messages.unshift(newMsg)
+  fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
+  return newMsg
+}
+
+export function markRead(id: string): void {
+  ensureDataDir()
+  const messages = getMessages()
+  const idx = messages.findIndex((m) => m.id === id)
+  if (idx !== -1) {
+    messages[idx].read = true
+    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
+  }
+}
+
+export function markReplied(id: string): void {
+  ensureDataDir()
+  const messages = getMessages()
+  const idx = messages.findIndex((m) => m.id === id)
+  if (idx !== -1) {
+    messages[idx].replied = true
+    messages[idx].read = true
+    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
+  }
+}
+
+export function deleteMessage(id: string): void {
+  ensureDataDir()
+  const messages = getMessages().filter((m) => m.id !== id)
+  fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2))
 }
