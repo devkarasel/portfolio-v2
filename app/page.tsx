@@ -15,7 +15,7 @@ const LIVE_URLS: Record<string, string> = {
   portfolio: 'https://devkarasel.vercel.app',
   deveventsnextjs16: 'https://rasel-event.vercel.app',
   whatsappButton: 'https://whatsapp-button.vercel.app',
-  funGames: 'https://fun-games.vercel.app',
+  funGames: 'http://devkarasel.github.io/funGames/',
   decimalToBinary: 'http://devkarasel.github.io/decimalToBinary/'
 }
 
