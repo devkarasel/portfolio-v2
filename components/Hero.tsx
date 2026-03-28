@@ -84,7 +84,7 @@ export default function Hero() {
                   src="/profile.jpg"
                   alt="Khorshed Alam Rasel"
                   fill
-                  className="object-cover object-top"
+                  className="object-cover object-right"
                   priority
                 />
                 {/* Subtle overlay */}
