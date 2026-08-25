@@ -85,7 +85,7 @@ const STATIC_DATA: Record<string, Partial<GitHubRepo>> = {
   }
 }
 
-const PINNED = ['bddriving', 'portfoliov2', 'portfolio',  'SickFits', 'deveventsnextjs16', 'whatsappButton',  'funGames', 'decimalToBinary']
+const PINNED = ['bdshop', 'bddriving', 'portfoliov2', 'portfolio',  'SickFits', 'deveventsnextjs16', 'whatsappButton',  'funGames', 'decimalToBinary']
 
 async function getProjects(): Promise<GitHubRepo[]> {
   return Promise.all(
