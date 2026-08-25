@@ -20,6 +20,13 @@ const LIVE_URLS: Record<string, string> = {
 }
 
 const STATIC_DATA: Record<string, Partial<GitHubRepo>> = {
+    bdshop: {
+    name: 'bdshop', full_name: 'devkarasel/bdshop',
+    description: 'An e-commerce website built with NextJS, featuring real-time order tracking with interactive maps and MongoDB integration.',
+    html_url: 'https://github.com/devkarasel/portfolio-v2', homepage: 'https://bdshop-seven.vercel.app',
+    language: 'TypeScript', stargazers_count: 0, forks_count: 0,
+    topics: ['typescript', 'tailwind', 'mongodb', 'nextjs', 'maps'], updated_at: new Date().toISOString(),
+  },
   bddriving: {
     name: 'bddriving', full_name: 'devkarasel/bddriving',
     description: 'A driving website built with NextJS, featuring interactive maps and mongoDB integration.',
